@@ -30,7 +30,10 @@ async def _handle_with_retry(client, r, stream, group, msg_id, fields):
             resp.raise_for_status()
             result = resp.json()
             if result["flagged"]:
-                await r.xadd("flagged_stream", {"data": json.dumps({"txn": payload, "score": result["fraud_probability"], "reasons": result["reasons"]}, default=str)})
+                flagged_data = {"txn": payload, "score": result["fraud_probability"], "reasons": result["reasons"]}
+                payload_str = json.dumps(flagged_data, default=str)
+                await r.xadd("flagged_stream", {"data": payload_str})
+                await r.publish("flagged_channel", payload_str)
             await r.xack(stream, group, msg_id)
             return
         except Exception as exc:

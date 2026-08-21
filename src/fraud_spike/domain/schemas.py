@@ -26,6 +26,9 @@ class ExplanationItem(BaseModel):
     feature: str
     contribution: float
 
+class ThresholdUpdate(BaseModel):
+    threshold: float
+
 class ScoreResponse(BaseModel):
     transaction_id: str
     fraud_probability: float

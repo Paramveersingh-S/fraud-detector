@@ -1,9 +1,5 @@
 <div align="center">
-  <svg width="200" height="200" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="45" fill="none" stroke="#2563EB" stroke-width="8"/>
-    <path d="M 30 50 L 45 65 L 75 35" fill="none" stroke="#2563EB" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="75" cy="35" r="5" fill="#EF4444"/>
-  </svg>
+  <img src="assets/logo.jpg" alt="Fraud-Spike Detector Logo" width="200" height="200" />
   
   # Fraud-Spike Detector
   

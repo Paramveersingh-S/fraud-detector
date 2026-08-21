@@ -1,11 +1,11 @@
-import time, logging
-from fastapi import FastAPI, Depends, HTTPException, Request
+import time, logging, asyncio
+from fastapi import FastAPI, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 from fraud_spike.config import settings
-from fraud_spike.domain.schemas import TransactionIn, ScoreResponse, ExplanationItem
+from fraud_spike.domain.schemas import TransactionIn, ScoreResponse, ExplanationItem, ThresholdUpdate
 from fraud_spike.domain.exceptions import FraudSpikeError
-from fraud_spike.serving.dependencies import get_model, get_manifest, get_velocity_store
+from fraud_spike.serving.dependencies import get_model, get_manifest, get_velocity_store, get_redis
 from fraud_spike.features.explain import build_explainer, explain_transaction
 
 logger = logging.getLogger(settings.service_name)
@@ -66,3 +66,25 @@ async def score(
 @app.get("/health")
 async def health(model=Depends(get_model), manifest=Depends(get_manifest)):
     return {"status": "ok", "model_version": manifest["model_version"]}
+
+@app.post("/v1/threshold")
+async def update_threshold(update: ThresholdUpdate):
+    settings.score_threshold_override = update.threshold
+    return {"status": "ok", "threshold": settings.score_threshold_override}
+
+@app.get("/v1/threshold")
+async def get_threshold(manifest=Depends(get_manifest)):
+    return {"threshold": settings.score_threshold_override or manifest["metrics"].get("threshold", 0.5)}
+
+@app.websocket("/ws/feed")
+async def websocket_feed(websocket: WebSocket):
+    await websocket.accept()
+    r = await get_redis()
+    pubsub = r.pubsub()
+    await pubsub.subscribe("flagged_channel")
+    try:
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                await websocket.send_text(message["data"])
+    except WebSocketDisconnect:
+        await pubsub.unsubscribe("flagged_channel")
