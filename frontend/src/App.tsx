@@ -7,8 +7,12 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 
-const SOCKET_URL = 'ws://localhost:8000/ws/feed';
-const API_URL = 'http://localhost:8000';
+const API_BASE = window.location.hostname === 'localhost' 
+  ? 'localhost:8000' 
+  : `${window.location.hostname}:8000`;
+
+const SOCKET_URL = `ws://${API_BASE}/ws/feed`;
+const API_URL = `http://${API_BASE}`;
 
 interface Reason {
   feature: string;
