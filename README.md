@@ -30,7 +30,9 @@ graph TD
     subgraph Offline Training
         A[Historical Transactions CSV] --> B[Feature Pipeline]
         B -->|Temporal Split| C[LightGBM Model]
+        B -->|Unsupervised| C2[Isolation Forest]
         C -->|Saved| D[(Model Registry)]
+        C2 -->|Saved| D
     end
 
     subgraph Real-time Serving
@@ -52,12 +54,14 @@ graph TD
 
 ## Features
 
-- **Online/Offline Feature Parity**: Uses a contract test to ensure the Redis-backed online feature store computes rolling velocity precisely as the offline Pandas pipeline does, preventing train/serve skew.
-- **Adaptive Risk Thresholding**: The system dynamically updates thresholds and visually displays them in the dashboard to adapt to changing attack volumes.
+- **Dual-Engine ML Architecture**: Combines a Supervised LightGBM model with an Unsupervised Isolation Forest to detect both known historical fraud patterns and zero-day anomalous behaviors simultaneously.
+- **Real-Time Bipartite Network Graph**: Leverages Redis Sorted Sets (`ZADD`, `ZCOUNT`) to compute sub-second cross-entity velocity features (e.g. `ip_unique_cards_1h`) capturing distributed botnets.
+- **Dynamic Financial Risk Calibration**: Translates raw machine learning probabilities into Expected Financial Dollar Risk, empowering analysts to threshold on true business impact rather than abstract scores.
+- **Full-Stack Observability**: A bespoke React + Vite + Tailwind CSS dashboard receives sub-second alerts over WebSockets, decoupling the frontend from the scoring engine through Redis Pub/Sub.
+- **Online/Offline Feature Parity**: Uses strict contract testing to guarantee the Redis-backed online feature store computes rolling velocity and network graphs precisely as the offline Pandas pipeline does, preventing train/serve skew.
 - **Resilient Streaming**: The Redis consumer group implements strict retry logic with exponential backoff and a dead-letter queue. One malformed transaction cannot stall the group.
-- **Explainability**: Every flagged transaction includes real-time SHAP feature contributions, presented in the dashboard so risk analysts understand *why* a block occurred.
-- **Strict Domain Types**: All requests and domain models are validated via Pydantic schemas.
-- **Containerized**: The complete architecture (API, consumer, dashboard, Redis) spins up with a single Docker Compose command.
+- **Explainability**: Every flagged transaction includes real-time SHAP feature contributions, presented natively in the dashboard so risk analysts understand *why* a block occurred.
+- **Containerized**: The complete architecture (FastAPI, React, Consumer, Redis) spins up with a single Docker Compose command.
 
 ## Results
 
@@ -86,7 +90,7 @@ This repository is optimized for GitHub Codespaces.
    ```bash
    docker compose up --build -d
    ```
-3. To view the dashboard, forward port `8501` in the "Ports" tab of your Codespace and open it in the browser.
+3. To view the dashboard, forward port `5173` in the "Ports" tab of your Codespace and open it in the browser.
 4. To see the FastAPI documentation, forward port `8000` and navigate to `/docs`.
 
 ## Local Development
