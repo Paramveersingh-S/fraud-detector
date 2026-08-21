@@ -1,4 +1,7 @@
-import json, subprocess, hashlib, datetime
+import json
+import subprocess
+import hashlib
+import datetime
 from pathlib import Path
 
 def _git_commit() -> str:

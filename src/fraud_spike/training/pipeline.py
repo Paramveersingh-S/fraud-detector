@@ -6,7 +6,6 @@ from sklearn.metrics import (
     roc_auc_score, average_precision_score,
     precision_score, recall_score, f1_score
 )
-from fraud_spike.features.offline import build_features
 
 DROP_COLS = ['TransactionID', 'isFraud', 'TransactionDT', 'uid']
 

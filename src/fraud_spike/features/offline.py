@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 
 CATEGORICAL_COLS = [
     'ProductCD', 'card4', 'card6', 'P_emaildomain',
