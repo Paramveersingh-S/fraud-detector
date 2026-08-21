@@ -8,8 +8,10 @@
   ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
   ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-green?logo=fastapi)
   ![Redis](https://img.shields.io/badge/Redis-5.0-red?logo=redis)
+  ![React](https://img.shields.io/badge/React-18-blue?logo=react)
+  ![Vite](https://img.shields.io/badge/Vite-5-purple?logo=vite)
+  ![Tailwind](https://img.shields.io/badge/Tailwind-CSS-teal?logo=tailwindcss)
   ![LightGBM](https://img.shields.io/badge/LightGBM-4.3-lightblue)
-  ![Streamlit](https://img.shields.io/badge/Streamlit-1.35-red?logo=streamlit)
   ![Docker](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)
   ![CI](https://github.com/Paramveersingh-S/fraud-detector/actions/workflows/ci.yml/badge.svg)
 
@@ -38,11 +40,12 @@ graph TD
         H -->|Depends on| D
         H -->|Online Velocity| F
         H -->|SHAP Explanations| I[TreeExplainer]
-        G -->|Flags Anomalies| J[flagged_stream]
+        G -->|Publishes Anomaly| J[Redis Pub/Sub]
     end
 
     subgraph Observability
-        J --> K[Streamlit Live Dashboard]
+        J -->|Listens| H
+        H -->|WebSocket Broadcast| K[React UI Dashboard]
         H --> L[Prometheus Metrics]
     end
 ```

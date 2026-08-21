@@ -3,7 +3,7 @@ on an identical event sequence. If this fails, the model is scoring on
 features it was never trained to see — that's a silent correctness bug,
 not a crash, which is what makes it dangerous."""
 
-import fakeredis.aioredis
+import fakeredis
 import pandas as pd
 import pytest
 
@@ -23,7 +23,7 @@ async def test_offline_online_parity():
     df = build_uid(df)
     df = add_velocity_features(df, windows=[('3600s', '3600s')])
 
-    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
     store = OnlineVelocityStore(fake_redis, windows_seconds=(3600,))
     uid = df["uid"].iloc[0]
 
