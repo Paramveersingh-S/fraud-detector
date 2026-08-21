@@ -26,6 +26,8 @@ interface FlaggedEvent {
   txn: Transaction;
   score: number;
   reasons: Reason[];
+  anomaly_score: number;
+  expected_risk: number;
 }
 
 interface ChartDataPoint {
@@ -146,13 +148,21 @@ function App() {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-mono text-xs text-slate-400">#{event.txn.TransactionID}</span>
-                      <span className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs font-bold border border-red-500/20">
-                        Score: {event.score.toFixed(3)}
-                      </span>
+                      <div className="flex space-x-2">
+                        <span className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs font-bold border border-red-500/20" title="Supervised Probability">
+                          P: {event.score.toFixed(3)}
+                        </span>
+                        <span className="px-2 py-1 rounded bg-purple-500/10 text-purple-400 text-xs font-bold border border-purple-500/20" title="Isolation Forest Score">
+                          Z: {event.anomaly_score?.toFixed(3) ?? '0.000'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-lg font-medium text-white">${event.txn.TransactionAmt.toFixed(2)}</span>
-                      <span className="text-xs text-slate-400 flex items-center group-hover:text-blue-400 transition-colors">
+                    <div className="flex justify-between items-baseline mt-2">
+                      <div className="flex flex-col">
+                        <span className="text-lg font-medium text-white">${event.txn.TransactionAmt.toFixed(2)}</span>
+                        <span className="text-xs font-mono text-orange-400" title="Expected Financial Risk">Risk: ${(event.expected_risk || 0).toFixed(2)}</span>
+                      </div>
+                      <span className="text-xs text-slate-400 flex items-center group-hover:text-blue-400 transition-colors ml-auto">
                         View SHAP &rarr;
                       </span>
                     </div>

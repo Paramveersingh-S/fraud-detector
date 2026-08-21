@@ -6,7 +6,7 @@ from prometheus_client import Counter, Histogram, make_asgi_app
 from fraud_spike.config import settings
 from fraud_spike.domain.schemas import TransactionIn, ScoreResponse, ExplanationItem, ThresholdUpdate
 from fraud_spike.domain.exceptions import FraudSpikeError
-from fraud_spike.serving.dependencies import get_model, get_manifest, get_velocity_store, get_redis
+from fraud_spike.serving.dependencies import get_model, get_manifest, get_velocity_store, get_redis, get_iso_model, get_network_store
 from fraud_spike.features.explain import build_explainer, explain_transaction
 
 logger = logging.getLogger(settings.service_name)
@@ -25,13 +25,16 @@ async def domain_error_handler(request: Request, exc: FraudSpikeError):
 async def score(
     txn: TransactionIn,
     model=Depends(get_model),
+    iso_model=Depends(get_iso_model),
     manifest=Depends(get_manifest),
     store=Depends(get_velocity_store),
+    net_store=Depends(get_network_store),
 ):
     start = time.perf_counter()
     uid = txn.uid_key()
     velocity = await store.get_features(uid, now_ts=txn.transaction_dt)
-    row = {**txn.raw_features, **velocity, "TransactionAmt": txn.transaction_amt}
+    network = await net_store.get_features(txn.addr1, now_ts=txn.transaction_dt)
+    row = {**txn.raw_features, **velocity, **network, "TransactionAmt": txn.transaction_amt}
 
     threshold = settings.score_threshold_override or manifest["metrics"].get("threshold", 0.5)
     
@@ -47,6 +50,19 @@ async def score(
     row_filtered = {k: row[k] for k in feature_cols}
     
     proba = float(model.predict([list(row_filtered.values())])[0])
+    expected_risk = proba * txn.transaction_amt
+    
+    numeric_cols = [c for c in feature_cols if str(type(row_filtered[c])) != "<class 'str'>"]
+    X_num = []
+    for c in numeric_cols:
+        val = row_filtered[c]
+        try:
+            X_num.append(float(val) if val is not None else 0.0)
+        except Exception:
+            X_num.append(0.0)
+            
+    anomaly_score = float(-iso_model.score_samples([X_num])[0])
+    
     flagged = proba >= threshold
 
     reasons: list[ExplanationItem] = []
@@ -55,13 +71,16 @@ async def score(
         reasons = [ExplanationItem(**r) for r in explain_transaction(explainer, feature_cols, row_filtered)]
 
     await store.record(uid, txn.transaction_dt, txn.transaction_amt)
+    await net_store.record(txn.addr1, uid, txn.transaction_dt)
 
     LATENCY.observe(time.perf_counter() - start)
     REQUEST_COUNT.labels(flagged=str(flagged)).inc()
 
     return ScoreResponse(
-        transaction_id=txn.transaction_id, fraud_probability=proba, flagged=flagged,
-        threshold_used=threshold, reasons=reasons, model_version=manifest["model_version"],
+        transaction_id=txn.transaction_id, fraud_probability=proba,
+        anomaly_score=anomaly_score, expected_risk=expected_risk,
+        flagged=flagged, threshold_used=threshold, reasons=reasons, 
+        model_version=manifest["model_version"],
     )
 
 @app.get("/health")

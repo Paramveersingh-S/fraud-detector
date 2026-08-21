@@ -33,3 +33,33 @@ class OnlineVelocityStore:
         pipe.zremrangebyscore(key, 0, ts - self._max_window)  # bounds memory: only keep max-window history
         pipe.expire(key, self._max_window * 2)                # safety net for uids that go permanently quiet
         await pipe.execute()
+
+class OnlineNetworkStore:
+    def __init__(self, redis_client: aioredis.Redis, windows_seconds: tuple[int, ...]):
+        self._redis = redis_client
+        self._windows = windows_seconds
+        self._max_window = max(windows_seconds)
+
+    def _key(self, ip: str) -> str:
+        return f"network:ip:{ip}:uids"
+
+    async def get_features(self, ip: str | None, now_ts: float) -> dict[str, float]:
+        if ip is None or str(ip) == "nan":
+            return {f"ip_unique_cards_{w}s": 0.0 for w in self._windows}
+            
+        key = self._key(str(ip))
+        features: dict[str, float] = {}
+        for window in self._windows:
+            count = await self._redis.zcount(key, now_ts - window, now_ts)
+            features[f"ip_unique_cards_{window}s"] = float(count)
+        return features
+
+    async def record(self, ip: str | None, uid: str, ts: float) -> None:
+        if ip is None or str(ip) == "nan":
+            return
+        key = self._key(str(ip))
+        pipe = self._redis.pipeline()
+        pipe.zadd(key, {uid: ts})
+        pipe.zremrangebyscore(key, 0, ts - self._max_window)
+        pipe.expire(key, self._max_window * 2)
+        await pipe.execute()

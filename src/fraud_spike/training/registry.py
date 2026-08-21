@@ -18,9 +18,10 @@ def _file_hash(path: str) -> str:
         return "no_file"
     return h.hexdigest()[:12]
 
-def write_manifest(model_path: str, metrics: dict, manifest_path: str = "models/manifest.json") -> dict:
+def write_manifest(model_path: str, iso_path: str, metrics: dict, manifest_path: str = "models/manifest.json") -> dict:
     manifest = {
         "model_version": _file_hash(model_path),
+        "iso_model_version": _file_hash(iso_path),
         "trained_at": datetime.datetime.utcnow().isoformat() + "Z",
         "git_commit": _git_commit(),
         "metrics": metrics,

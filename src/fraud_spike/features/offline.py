@@ -56,10 +56,33 @@ def prepare_categoricals(df: pd.DataFrame) -> pd.DataFrame:
             df[c] = df[c].astype('category')
     return df
 
+def add_network_features(df: pd.DataFrame, windows=(('1h', '3600s'),)) -> pd.DataFrame:
+    import numpy as np
+    df = df.sort_values(['addr1', 'TransactionDT']).reset_index(drop=True)
+    df['_dt'] = pd.to_datetime(df['TransactionDT'], unit='s')
+    df = df.set_index('_dt')
+    
+    df['uid_encoded'] = pd.factorize(df['uid'])[0]
+    
+    for label, window in windows:
+        df[f'ip_unique_cards_{label}'] = (
+            df.groupby('addr1')['uid_encoded']
+              .rolling(window, closed='left')
+              .apply(lambda x: len(np.unique(x[~np.isnan(x)])) if len(x) > 0 else 0, raw=True)
+              .reset_index(level=0, drop=True)
+        )
+        
+    df = df.reset_index(drop=True)
+    count_cols = [c for c in df.columns if c.startswith('ip_unique_cards_')]
+    df[count_cols] = df[count_cols].fillna(0)
+    df = df.drop(columns=['uid_encoded'])
+    return df
+
 def build_features(transaction_path: str, identity_path: str) -> pd.DataFrame:
     df = load_and_merge(transaction_path, identity_path)
     df = build_uid(df)
     df = df.sort_values('TransactionDT').reset_index(drop=True)
     df = add_velocity_features(df)
+    df = add_network_features(df)
     df = prepare_categoricals(df)
     return df

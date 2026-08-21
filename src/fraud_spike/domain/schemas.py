@@ -32,6 +32,8 @@ class ThresholdUpdate(BaseModel):
 class ScoreResponse(BaseModel):
     transaction_id: str
     fraud_probability: float
+    anomaly_score: float
+    expected_risk: float
     flagged: bool
     threshold_used: float
     reasons: list[ExplanationItem]

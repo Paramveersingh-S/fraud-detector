@@ -2,6 +2,9 @@ import lightgbm as lgb
 import pandas as pd
 import numpy as np
 import json
+import joblib
+import os
+from sklearn.ensemble import IsolationForest
 from sklearn.metrics import (
     roc_auc_score, average_precision_score,
     precision_score, recall_score, f1_score
@@ -57,9 +60,19 @@ def train_model(df: pd.DataFrame):
     )
 
     model.save_model('models/fraud_spike_lgbm.txt')
-    return model, feature_cols, (train, val, test)
+    
+    # Train Isolation Forest
+    numeric_cols = [c for c in feature_cols if str(train[c].dtype) != 'category']
+    X_train_num = X_train[numeric_cols].fillna(0)
+    iso_forest = IsolationForest(n_estimators=100, contamination=0.01, random_state=42)
+    iso_forest.fit(X_train_num)
+    
+    os.makedirs('models', exist_ok=True)
+    joblib.dump(iso_forest, 'models/fraud_spike_isoforest.joblib')
+    
+    return model, iso_forest, feature_cols, (train, val, test)
 
-def evaluate(model, feature_cols, test_df):
+def evaluate(model, iso_forest, feature_cols, test_df):
     X_test, y_test = test_df[feature_cols], test_df['isFraud']
     y_proba = model.predict(X_test, num_iteration=model.best_iteration)
 
@@ -80,6 +93,12 @@ def evaluate(model, feature_cols, test_df):
 
     final_preds = (y_proba >= best_threshold).astype(int)
     naive_cost = (y_test == 1).sum() * fn_cost
+    
+    numeric_cols = [c for c in feature_cols if str(test_df[c].dtype) != 'category']
+    X_test_num = X_test[numeric_cols].fillna(0)
+    anomaly_scores = -iso_forest.score_samples(X_test_num)
+    avg_anomaly_fraud = float(np.mean(anomaly_scores[y_test == 1])) if (y_test == 1).sum() > 0 else 0.0
+    avg_anomaly_legit = float(np.mean(anomaly_scores[y_test == 0])) if (y_test == 0).sum() > 0 else 0.0
 
     report = {
         'roc_auc': round(float(roc_auc), 4),
@@ -93,6 +112,8 @@ def evaluate(model, feature_cols, test_df):
         'expected_cost_at_threshold': round(float(best_cost), 2),
         'naive_baseline_cost': round(float(naive_cost), 2),
         'cost_reduction_vs_baseline_pct': round(100 * (1 - best_cost / max(naive_cost, 1)), 2),
+        'avg_anomaly_score_fraud': round(avg_anomaly_fraud, 4),
+        'avg_anomaly_score_legit': round(avg_anomaly_legit, 4),
     }
 
     with open('artifacts/metrics_report.json', 'w') as f:

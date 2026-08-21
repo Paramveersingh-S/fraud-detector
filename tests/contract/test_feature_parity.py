@@ -7,8 +7,8 @@ import fakeredis
 import pandas as pd
 import pytest
 
-from fraud_spike.features.offline import add_velocity_features, build_uid
-from fraud_spike.features.online import OnlineVelocityStore
+from fraud_spike.features.offline import add_velocity_features, build_uid, add_network_features
+from fraud_spike.features.online import OnlineVelocityStore, OnlineNetworkStore
 
 @pytest.mark.asyncio
 async def test_offline_online_parity():
@@ -34,3 +34,26 @@ async def test_offline_online_parity():
         await store.record(uid, event["TransactionDT"], event["TransactionAmt"])
 
     assert list(df["uid_txn_count_3600s"]) == online_counts
+
+@pytest.mark.asyncio
+async def test_network_offline_online_parity():
+    events = [
+        {"uid": "uid1", "addr1": 1, "TransactionDT": 0},
+        {"uid": "uid2", "addr1": 1, "TransactionDT": 300},
+        {"uid": "uid1", "addr1": 1, "TransactionDT": 1800},
+        {"uid": "uid3", "addr1": 1, "TransactionDT": 4000}, 
+    ]
+
+    df = pd.DataFrame(events)
+    df = add_network_features(df, windows=[('3600s', '3600s')])
+
+    fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    store = OnlineNetworkStore(fake_redis, windows_seconds=(3600,))
+    
+    online_counts = []
+    for event in events:
+        feats = await store.get_features(event["addr1"], now_ts=event["TransactionDT"])
+        online_counts.append(feats["ip_unique_cards_3600s"])
+        await store.record(event["addr1"], event["uid"], event["TransactionDT"])
+
+    assert list(df["ip_unique_cards_3600s"]) == online_counts
