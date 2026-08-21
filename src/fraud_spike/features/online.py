@@ -20,7 +20,7 @@ class OnlineVelocityStore:
         features: dict[str, float] = {}
         for window in self._windows:
             entries = await self._redis.zrangebyscore(key, now_ts - window, now_ts)
-            amounts = [float(e.split(":")[1]) for e in entries]  # client uses decode_responses=True
+            amounts = [float(str(e).split(":")[1]) for e in entries]  # client uses decode_responses=True
             features[f"uid_txn_count_{window}s"] = float(len(amounts))
             features[f"uid_amt_min_{window}s"] = min(amounts) if amounts else -1.0
         return features
